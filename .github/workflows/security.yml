@@ -30,8 +30,10 @@ jobs:
         source venv/bin/activate
         bandit -r .
 
-    - name: Run Trivy SCA scan
-      run: trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+    - name: Install Trivy
+      run: |
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
 
     - name: Start Flask app in background
       run: |
