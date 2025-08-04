@@ -1,0 +1,45 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+        pip install bandit trivy
+
+    - name: Run Bandit SAST scan
+      run: |
+        source venv/bin/activate
+        bandit -r .
+
+    - name: Run Trivy SCA scan
+      run: trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+
+    - name: Start Flask app in background
+      run: |
+        source venv/bin/activate
+        nohup python app.py &
+
+    - name: Run OWASP ZAP DAST scan
+      uses: zaproxy/action-full-scan@v0.6.0
+      with:
+        target: 'http://localhost:5000'
+        cmd_options: '-t 60 -m 10'
