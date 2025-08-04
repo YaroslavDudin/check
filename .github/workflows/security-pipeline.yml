@@ -26,24 +26,33 @@ jobs:
         run: semgrep scan --config auto --severity error
 
   sca_trivy:
-    name: Trivy SCA + Secrets + Config
+    name: Trivy SCA + Config
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
+
       - name: Install Trivy
         run: |
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.51.1_Linux-64bit.deb
-          sudo dpkg -i trivy_0.51.1_Linux-64bit.deb
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
 
       - name: Trivy SCA (Dependencies)
         run: trivy fs --scanners vuln . --exit-code 1 --severity HIGH,CRITICAL
 
-      - name: Trivy Secrets Scan
+      - name: Trivy Secrets
         run: trivy fs --scanners secret . --exit-code 1
 
-      - name: Trivy Config Scan
+      - name: Trivy Config (CA/SAST)
         run: trivy config . --exit-code 0
 
   dast_zap:
@@ -61,10 +70,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Flask app in background
+      - name: Run insecure Flask app in background
         run: |
           nohup python app.py > flask.log 2>&1 &
-          sleep 10
+          sleep 5
 
       - name: Run ZAP Baseline Scan (DAST)
         uses: zaproxy/action-baseline@v0.11.0
