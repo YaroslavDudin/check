@@ -1,47 +1,27 @@
-name: Security Checks
+name: Security Scan
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 jobs:
   security:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: 3.10
 
-    - name: Install dependencies
+    - name: Install dependencies and security tools
       run: |
-        python -m venv venv
-        source venv/bin/activate
-        pip install -r requirements.txt
-        pip install bandit trivy
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt bandit safety
 
-    - name: Run Bandit SAST scan
-      run: |
-        source venv/bin/activate
-        bandit -r .
+    - name: Run Bandit (SAST)
+      run: bandit -r .
 
-    - name: Install Trivy
-      run: |
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-
-
-    - name: Start Flask app in background
-      run: |
-        source venv/bin/activate
-        nohup python app.py &
-
-    - name: Run OWASP ZAP DAST scan
-      uses: zaproxy/action-full-scan@v0.6.0
-      with:
-        target: 'http://localhost:5000'
-        cmd_options: '-t 60 -m 10'
+    - name: Run Safety (SCA)
+      run: safety check --full-report
